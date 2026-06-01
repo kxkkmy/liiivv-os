@@ -41,7 +41,7 @@ export async function updateProjectMemberRole(
     .eq("profile_id", profileId);
 
   if (error) throw new Error(error.message);
-  revalidatePath("/management/members");
+  revalidatePath("/projects/[slug]/members", "page");
 }
 
 export async function removeMember(profileId: string) {
@@ -60,10 +60,48 @@ export async function removeMember(profileId: string) {
     throw new Error("オーナーのみ実行できます");
   }
 
-  // プロジェクトから削除
   await supabase.from("project_members").delete().eq("profile_id", profileId);
-  // プロフィール削除
   await supabase.from("profiles").delete().eq("id", profileId);
 
   revalidatePath("/management/members");
+}
+
+export async function addProjectMember(projectId: string, profileId: string, role: string) {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  // すでに参加済みか確認
+  const { data: existing } = await supabase
+    .from("project_members")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("profile_id", profileId)
+    .single();
+
+  if (existing) throw new Error("すでにプロジェクトに参加しています");
+
+  const { error } = await supabase
+    .from("project_members")
+    .insert([{ project_id: projectId, profile_id: profileId, role }]);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/projects/[slug]/members", "page");
+}
+
+export async function removeProjectMember(projectId: string, profileId: string) {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const { error } = await supabase
+    .from("project_members")
+    .delete()
+    .eq("project_id", projectId)
+    .eq("profile_id", profileId);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/projects/[slug]/members", "page");
 }

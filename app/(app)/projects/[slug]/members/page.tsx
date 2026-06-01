@@ -4,7 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, Crown, Shield, User } from "lucide-react";
+import { Crown, Shield, User } from "lucide-react";
+import { AddMemberDialog } from "@/components/members/AddMemberDialog";
+import { removeProjectMember, updateProjectMemberRole } from "@/app/actions/members";
 
 const roleLabel: Record<string, string> = {
   owner: "オーナー",
@@ -54,6 +56,15 @@ export default async function ProjectMembersPage({
     .eq("project_id", project.id)
     .order("created_at");
 
+  // 参加していない全メンバーを取得（追加候補）
+  const memberIds = members?.map((m) => (m.profiles as any)?.id).filter(Boolean) ?? [];
+  const { data: allProfiles } = await supabase
+    .from("profiles")
+    .select("id, display_name, role")
+    .not("id", "in", `(${memberIds.join(",")})`)
+
+  const availableMembers = allProfiles ?? [];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -64,10 +75,10 @@ export default async function ProjectMembersPage({
           </p>
         </div>
         {canEdit && (
-          <Button size="sm">
-            <Plus size={14} className="mr-1" />
-            メンバー追加
-          </Button>
+          <AddMemberDialog
+            projectId={project.id}
+            availableMembers={availableMembers}
+          />
         )}
       </div>
 
@@ -82,6 +93,7 @@ export default async function ProjectMembersPage({
           members.map((m) => {
             const profile = m.profiles as any;
             const RoleIcon = roleIcon[m.role] ?? User;
+            const isSelf = profile?.id === user.id;
             return (
               <Card key={m.id}>
                 <CardContent className="flex items-center gap-4 py-4">
@@ -91,16 +103,29 @@ export default async function ProjectMembersPage({
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm">{profile?.display_name ?? "—"}</div>
-                    <div className="text-xs text-muted-foreground truncate">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">{profile?.display_name ?? "—"}</span>
+                      {isSelf && <Badge variant="outline" className="text-xs">あなた</Badge>}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
                       {profile?.title}{profile?.department ? ` · ${profile.department}` : ""}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <RoleIcon size={12} className="text-muted-foreground" />
                     <Badge variant="outline" className="text-xs">
                       {roleLabel[m.role]}
                     </Badge>
+                    {canEdit && !isSelf && (
+                      <form action={async () => {
+                        "use server";
+                        await removeProjectMember(project.id, profile.id);
+                      }}>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" type="submit">
+                          削除
+                        </Button>
+                      </form>
+                    )}
                   </div>
                 </CardContent>
               </Card>
