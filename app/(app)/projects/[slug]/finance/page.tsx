@@ -2,7 +2,10 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, TrendingUp, TrendingDown, DollarSign, Target } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Target } from "lucide-react";
+import { BudgetDialog } from "@/components/finance/BudgetDialog";
+import { BudgetRow } from "@/components/finance/BudgetRow";
+import { ActualRow } from "@/components/finance/ActualRow";
 
 export default async function ProjectFinancePage({
   params,
@@ -12,24 +15,15 @@ export default async function ProjectFinancePage({
   const { slug } = await params;
   const supabase = await createClient();
 
-  const { data: project } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("slug", slug)
-    .single();
-
+  const { data: project } = await supabase.from("projects").select("*").eq("slug", slug).single();
   if (!project) notFound();
 
-  const { data: events } = await supabase
-    .from("events_events")
-    .select("id")
-    .limit(1);
-
+  const { data: events } = await supabase.from("events_events").select("id").limit(1);
   const eventId = events?.[0]?.id;
 
   const [{ data: budgets }, { data: actuals }, { data: sponsorships }] = await Promise.all([
-    supabase.from("finance_budgets").select("*").eq("event_id", eventId ?? ""),
-    supabase.from("finance_actuals").select("*").eq("event_id", eventId ?? ""),
+    supabase.from("finance_budgets").select("*").order("created_at"),
+    supabase.from("finance_actuals").select("*").order("recorded_at", { ascending: false }),
     supabase.from("crm_sponsorships").select("amount, invoice_status, proposal_status"),
   ]);
 
@@ -43,6 +37,8 @@ export default async function ProjectFinancePage({
   const TARGET = 25000000;
   const pct = Math.min(Math.round((sponsorAgreed / TARGET) * 100), 100);
 
+  const budgetsForSelect = budgets?.map((b) => ({ id: b.id, category: b.category })) ?? [];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -50,18 +46,20 @@ export default async function ProjectFinancePage({
           <h1 className="text-xl font-semibold">Finance</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{project.name}の予算管理</p>
         </div>
-        <Button size="sm">
-          <Plus size={14} className="mr-1" />
-          予算追加
-        </Button>
+        <div className="flex gap-2">
+          <BudgetDialog eventId={eventId} type="budget" />
+          <BudgetDialog
+            eventId={eventId}
+            type="actual"
+            budgets={budgetsForSelect}
+            trigger={<Button size="sm" variant="outline">実績追加</Button>}
+          />
+        </div>
       </div>
 
-      {/* 協賛進捗 */}
       {slug === "chapter18" && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">協賛獲得進捗</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-base">協賛獲得進捗</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">合意済み</span>
@@ -72,13 +70,12 @@ export default async function ProjectFinancePage({
             </div>
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>{pct}% 達成</span>
-              <span>目標: ¥25,000,000</span>
+              <span>入金済み: ¥{sponsorPaid.toLocaleString()}</span>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* 収支サマリー */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: "収入予算", value: totalRevenueBudget, icon: TrendingUp },
@@ -98,51 +95,57 @@ export default async function ProjectFinancePage({
         ))}
       </div>
 
-      {/* 収支詳細 */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">収支詳細</CardTitle>
-          <Button size="sm" variant="outline">
-            <Plus size={14} className="mr-1" />
-            項目追加
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {!budgets || budgets.length === 0 ? (
-            <p className="text-sm text-muted-foreground">予算が登録されていません</p>
-          ) : (
-            <div className="rounded-lg border overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">カテゴリ</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">種別</th>
-                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">予算</th>
-                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">実績</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {budgets.map((b) => {
-                    const actual = actuals?.find((a) => a.budget_id === b.id);
-                    return (
-                      <tr key={b.id} className="border-b last:border-0 hover:bg-muted/30">
-                        <td className="px-4 py-3 font-medium">{b.category}</td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {b.plan_type === "revenue" ? "収入" : "支出"}
-                        </td>
-                        <td className="px-4 py-3 text-right">¥{b.amount.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-right">
-                          {actual ? `¥${actual.amount.toLocaleString()}` : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div>
+        <h2 className="text-base font-medium mb-3">予算</h2>
+        <div className="rounded-lg border bg-background overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">カテゴリ</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">種別</th>
+                <th className="text-right px-4 py-3 font-medium text-muted-foreground">予算額</th>
+                <th className="text-right px-4 py-3 font-medium text-muted-foreground">実績</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {!budgets || budgets.length === 0 ? (
+                <tr><td colSpan={5} className="text-center py-8 text-muted-foreground">予算が登録されていません</td></tr>
+              ) : (
+                budgets.map((b) => (
+                  <BudgetRow key={b.id} budget={b} actuals={actuals ?? []} />
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-base font-medium mb-3">実績</h2>
+        <div className="rounded-lg border bg-background overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">カテゴリ</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">種別</th>
+                <th className="text-right px-4 py-3 font-medium text-muted-foreground">金額</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">計上日</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {!actuals || actuals.length === 0 ? (
+                <tr><td colSpan={5} className="text-center py-8 text-muted-foreground">実績が登録されていません</td></tr>
+              ) : (
+                actuals.map((a) => (
+                  <ActualRow key={a.id} actual={a} />
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
