@@ -26,10 +26,20 @@ export async function proxy(request: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
+  const pathname = request.nextUrl.pathname;
 
-  if (!user && !request.nextUrl.pathname.startsWith("/login")) {
+  const publicPaths = ["/login", "/register", "/api"];
+  const isPublic = publicPaths.some((p) => pathname.startsWith(p));
+
+  if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
+  if (user && (pathname === "/login" || pathname === "/register")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
     return NextResponse.redirect(url);
   }
 
@@ -37,5 +47,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
