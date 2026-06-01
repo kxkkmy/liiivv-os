@@ -3,6 +3,18 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
+async function logActivity(entityType: string, entityId: string, action: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase.from("activity_logs").insert([{
+    user_id: user.id,
+    entity_type: entityType,
+    entity_id: entityId,
+    action,
+  }]);
+}
+
 export async function createCompany(data: {
   name: string;
   name_kana?: string;
@@ -18,11 +30,14 @@ export async function createCompany(data: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  const { error } = await supabase
+  const { data: company, error } = await supabase
     .from("crm_companies")
-    .insert([{ ...data, status: "prospect" }]);
+    .insert([{ ...data, status: "prospect" }])
+    .select()
+    .single();
 
   if (error) throw new Error(error.message);
+  await logActivity("company", company.id, "created");
   revalidatePath("/projects/[slug]/crm", "page");
 }
 
@@ -44,6 +59,19 @@ export async function updateCompany(id: string, data: {
     .eq("id", id);
 
   if (error) throw new Error(error.message);
+  await logActivity("company", id, "updated");
+  revalidatePath("/projects/[slug]/crm", "page");
+}
+
+export async function deleteCompany(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("crm_companies")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+  await logActivity("company", id, "deleted");
   revalidatePath("/projects/[slug]/crm", "page");
 }
 
@@ -59,7 +87,7 @@ export async function createSponsorship(data: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  const { error } = await supabase
+  const { data: sponsorship, error } = await supabase
     .from("crm_sponsorships")
     .insert([{
       ...data,
@@ -67,9 +95,12 @@ export async function createSponsorship(data: {
       proposal_status: "draft",
       contract_status: "none",
       invoice_status: "none",
-    }]);
+    }])
+    .select()
+    .single();
 
   if (error) throw new Error(error.message);
+  await logActivity("sponsorship", sponsorship.id, "created");
   revalidatePath("/projects/[slug]/crm", "page");
 }
 
@@ -81,17 +112,7 @@ export async function updateSponsorshipStatus(id: string, field: string, value: 
     .eq("id", id);
 
   if (error) throw new Error(error.message);
-  revalidatePath("/projects/[slug]/crm", "page");
-}
-
-export async function deleteCompany(id: string) {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("crm_companies")
-    .delete()
-    .eq("id", id);
-
-  if (error) throw new Error(error.message);
+  await logActivity("sponsorship", id, "updated");
   revalidatePath("/projects/[slug]/crm", "page");
 }
 
@@ -103,5 +124,6 @@ export async function deleteSponsorship(id: string) {
     .eq("id", id);
 
   if (error) throw new Error(error.message);
+  await logActivity("sponsorship", id, "deleted");
   revalidatePath("/projects/[slug]/crm", "page");
 }

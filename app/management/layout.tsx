@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { BarChart2, Users, FolderOpen, Settings, ArrowLeft, Key } from "lucide-react";
+import { BarChart2, Users, FolderOpen, Settings, ArrowLeft, Key, Activity } from "lucide-react";
 
 const nav = [
   { label: "概要", href: "/management", icon: BarChart2 },
@@ -9,6 +9,7 @@ const nav = [
   { label: "プロジェクト管理", href: "/management/projects", icon: FolderOpen },
   { label: "メンバーコード", href: "/management/codes", icon: Key },
   { label: "設定", href: "/management/settings", icon: Settings },
+  { label: "操作履歴", href: "/management/activity", icon: Activity },
 ];
 
 export default async function ManagementLayout({
