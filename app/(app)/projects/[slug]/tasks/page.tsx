@@ -1,8 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { TaskBoard } from "@/components/tasks/TaskBoard";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 
 export default async function ProjectTasksPage({
   params,
@@ -20,26 +18,32 @@ export default async function ProjectTasksPage({
 
   if (!project) notFound();
 
-  const { data: tasks } = await supabase
-    .from("tasks_tasks")
-    .select("id, title, priority, status, due_date, assignee_id")
-    .eq("project_id_new", project.id)
-    .neq("status", "cancelled")
-    .order("created_at", { ascending: false });
+  const [{ data: tasks }, { data: members }] = await Promise.all([
+    supabase
+      .from("tasks_tasks")
+      .select("id, title, description, priority, status, due_date, assignee_id")
+      .eq("project_id_new", project.id)
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("project_members")
+      .select("profiles(id, display_name)")
+      .eq("project_id", project.id),
+  ]);
+
+  const memberList = members?.map((m: any) => m.profiles).filter(Boolean) ?? [];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">タスク</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{project.name}のタスク管理</p>
-        </div>
-        <Button size="sm">
-          <Plus size={14} className="mr-1" />
-          タスク追加
-        </Button>
+      <div>
+        <h1 className="text-xl font-semibold">タスク</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">{project.name}のタスク管理</p>
       </div>
-      <TaskBoard tasks={tasks ?? []} />
+      <TaskBoard
+        tasks={tasks ?? []}
+        projectId={project.id}
+        members={memberList}
+      />
     </div>
   );
 }

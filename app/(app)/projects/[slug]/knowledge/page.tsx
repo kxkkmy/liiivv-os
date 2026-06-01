@@ -1,10 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, FileText, BookOpen, Layout, Briefcase } from "lucide-react";
+import { FileText, BookOpen, Layout, Briefcase } from "lucide-react";
+import { DocumentDialog } from "@/components/knowledge/DocumentDialog";
+import { DocumentRow } from "@/components/knowledge/DocumentRow";
 
 const docTypeLabel: Record<string, string> = {
   minutes: "議事録",
@@ -40,7 +40,7 @@ export default async function ProjectKnowledgePage({
 
   const { data: docs } = await supabase
     .from("knowledge_documents")
-    .select("id, title, doc_type, tags, created_at, updated_at")
+    .select("id, title, doc_type, tags, body, url, created_at, updated_at")
     .eq("project_id_new", project.id)
     .order("updated_at", { ascending: false });
 
@@ -58,10 +58,7 @@ export default async function ProjectKnowledgePage({
           <h1 className="text-xl font-semibold">ナレッジ</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{project.name}の議事録・マニュアル・テンプレート</p>
         </div>
-        <Button size="sm">
-          <Plus size={14} className="mr-1" />
-          ドキュメント追加
-        </Button>
+        <DocumentDialog projectId={project.id} />
       </div>
 
       <div className="grid grid-cols-4 gap-4">
@@ -83,10 +80,6 @@ export default async function ProjectKnowledgePage({
         })}
       </div>
 
-      <div className="relative w-72">
-        <Input placeholder="ドキュメントを検索" className="h-9" />
-      </div>
-
       <div className="rounded-lg border bg-background overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -94,43 +87,26 @@ export default async function ProjectKnowledgePage({
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">タイトル</th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">種別</th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">タグ</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">リンク</th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">更新日</th>
+              <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody>
             {!docs || docs.length === 0 ? (
               <tr>
-                <td colSpan={4} className="text-center py-12 text-muted-foreground">
+                <td colSpan={6} className="text-center py-12 text-muted-foreground">
                   ドキュメントが登録されていません
                 </td>
               </tr>
             ) : (
-              docs.map((doc) => {
-                const Icon = docTypeIcon[doc.doc_type] ?? FileText;
-                return (
-                  <tr key={doc.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Icon size={14} className="text-muted-foreground shrink-0" />
-                        <span className="font-medium">{doc.title}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {docTypeLabel[doc.doc_type] ?? "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1 flex-wrap">
-                        {doc.tags?.map((tag: string) => (
-                          <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {new Date(doc.updated_at).toLocaleDateString("ja-JP")}
-                    </td>
-                  </tr>
-                );
-              })
+              docs.map((doc) => (
+                <DocumentRow
+                  key={doc.id}
+                  doc={doc}
+                  projectId={project.id}
+                />
+              ))
             )}
           </tbody>
         </table>
