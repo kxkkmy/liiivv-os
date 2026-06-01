@@ -49,7 +49,6 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      {/* ヘッダー */}
       <header className="h-14 border-b bg-background flex items-center justify-between px-6 sticky top-0 z-10">
         <span className="font-semibold tracking-tight">Liiivv OS</span>
         <div className="flex items-center gap-3">
@@ -62,6 +61,11 @@ export default async function HomePage() {
               </Button>
             </Link>
           )}
+          <Link href="/settings">
+            <Button size="sm" variant="ghost">
+              <Settings size={14} />
+            </Button>
+          </Link>
           <form action="/api/auth/logout" method="POST">
             <Button size="sm" variant="ghost">
               <LogOut size={14} />
@@ -71,18 +75,13 @@ export default async function HomePage() {
       </header>
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
-
-        {/* ウェルカム */}
         <div>
           <h1 className="text-2xl font-semibold">おはようございます、{profile?.display_name}さん</h1>
           <p className="text-sm text-muted-foreground mt-1">今日もよろしくお願いします。</p>
         </div>
 
         <div className="grid grid-cols-3 gap-6">
-          {/* 左カラム：プロジェクト + タスク */}
           <div className="col-span-2 space-y-6">
-
-            {/* プロジェクト */}
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-semibold">プロジェクト</h2>
@@ -133,7 +132,6 @@ export default async function HomePage() {
               )}
             </div>
 
-            {/* 自分のタスク */}
             <div>
               <h2 className="text-base font-semibold mb-3">自分のタスク</h2>
               <Card>
@@ -171,7 +169,6 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* 右カラム：情報 */}
           <div className="space-y-4">
             <Card>
               <CardHeader className="pb-2">
